@@ -31,8 +31,8 @@ jobs:
           command: test .
           json: true
           sarif: true
-          auth: ${{ secrets.SNYK_TOKEN }}
         env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
           SNYK_ORG: ${{ secrets.SNYK_ORG }}
 
       - name: Enforce severity gate (fail on High)
