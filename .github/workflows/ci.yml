@@ -38,11 +38,13 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       # 5. Run Snyk scan (JSON + SARIF)
+      - name: Install Python dependencies
+        run: pip install -r app/requirements.txt
       - name: Run Snyk Code scan
         run: |
           mkdir -p reports
-          snyk test --json > reports/snyk-code.json || true
-          snyk code test --sarif > reports/snyk-code.sarif || true
+          snyk test app --json > reports/snyk-code.json || true
+          snyk code test app --sarif > reports/snyk-code.sarif || true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
           SNYK_ORG: ${{ secrets.SNYK_ORG }}
