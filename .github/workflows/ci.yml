@@ -49,7 +49,7 @@ jobs:
 
       # 6. Enforce severity gate (fail on High)
       - name: Enforce severity gate
-        run: python scripts/enforce_severity_gate.py reports/snyk-code.json --fail-on High
+        run: python scripts/enforce_severity_gate.py reports/snyk-code.json --fail-on high
 
       # 7. Upload SARIF to GitHub for inline annotations
       - name: Upload SARIF to GitHub
