@@ -44,7 +44,7 @@ jobs:
         run: |
           mkdir -p reports
           rm -f reports/snyk-code.json reports/snyk-code.sarif
-          snyk test app --json > reports/snyk-code.json || true
+          snyk test app/app.py app/utils.py --json > reports/snyk-code.json || true
           snyk code test app --sarif 2> /dev/null > reports/snyk-code.sarif || true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
