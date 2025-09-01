@@ -26,9 +26,9 @@ jobs:
           python-version: "3.11"
 
       - name: Run Snyk Code scan (JSON + SARIF)
-        uses: snyk/actions/python@master
+        uses: snyk/actions/python@v3
         with:
-          command: test
+          command: test app
           json: true
           sarif: true
           auth: ${{ secrets.SNYK_TOKEN }}
