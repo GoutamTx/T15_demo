@@ -1,0 +1,74 @@
+name: T15 – AI PR Security Review
+permissions:
+contents: write # allow FP helper to push .snyk updates (optional)
+security-events: write # upload SARIF
+actions: read
+checks: read
+
+
+jobs:
+snyk-code-scan:
+runs-on: ubuntu-latest
+steps:
+- name: Checkout
+uses: actions/checkout@v4
+with:
+fetch-depth: 0
+
+
+- name: Setup Python for helper scripts
+uses: actions/setup-python@v5
+with:
+python-version: '3.11'
+
+
+- name: Install Snyk CLI
+uses: snyk/actions/setup@v3
+
+
+- name: Auth Snyk
+run: snyk auth ${{ secrets.SNYK_TOKEN }}
+
+
+- name: Run Snyk Code scan (JSON + SARIF)
+env:
+SNYK_ORG: ${{ vars.SNYK_ORG }}
+run: |
+mkdir -p reports
+snyk code test --json > reports/snyk-code.json || true
+snyk code test --sarif > reports/snyk-code.sarif || true
+
+
+- name: Enforce severity gate (fail on High)
+run: |
+python scripts/enforce_severity_gate.py reports/snyk-code.json --fail-on High
+
+
+- name: Upload SARIF to GitHub (inline annotations)
+uses: github/codeql-action/upload-sarif@v3
+with:
+sarif_file: reports/snyk-code.sarif
+
+
+- name: Summarize metrics
+run: |
+python scripts/summarize_metrics.py reports/snyk-code.json reports/summary.json reports/trend.csv .snyk
+
+
+- name: Upload artifacts
+uses: actions/upload-artifact@v4
+with:
+name: snyk-code-reports
+path: reports/
+
+
+- name: Handle "/snyk-fp" comments (optional)
+if: contains(github.event.pull_request.body, '/snyk-fp') || contains(steps.pr-comments.outputs.COMMENTS, '/snyk-fp')
+run: |
+echo "Parsing /snyk-fp commands…"
+python scripts/annotate_false_positive.py \
+--comment "${{ github.event.pull_request.body }}"
+git config user.email "bot@users.noreply.github.com"
+git config user.name "automation-bot"
+git add .snyk && git commit -m "chore(security): add temporary FP ignore via /snyk-fp" || echo "No FP changes"
+git push || true
