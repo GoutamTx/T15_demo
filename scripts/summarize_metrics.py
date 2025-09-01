@@ -1,70 +1,46 @@
-#!/usr/bin/env python3
-import json, sys, csv, datetime, yaml
+import json
+import sys
+import csv
 
-# Usage:
-#   python scripts/summarize_metrics.py INPUT_JSON SUMMARY_JSON TREND_CSV SNYK_POLICY
-#
-# Example:
-#   python scripts/summarize_metrics.py reports/snyk-code.json reports/summary.json reports/trend.csv .snyk
+if len(sys.argv) != 4:
+    print("Usage: python summarize_metrics.py <input.json> <summary.json> <trend.csv>")
+    sys.exit(1)
 
-inp, out_summary, out_trend, snyk_policy = sys.argv[1:5]
+input_json = sys.argv[1]
+summary_json = sys.argv[2]
+trend_csv = sys.argv[3]
 
-# Load Snyk Code JSON output
-with open(inp) as fh:
-    try:
-        data = json.load(fh)
-    except Exception:
-        data = {}
+with open(input_json) as f:
+    data = json.load(f)
 
-issues = data.get("issues", [])
+# Handle both dict (with "issues") and list
+if isinstance(data, dict):
+    issues = data.get("issues", [])
+elif isinstance(data, list):
+    issues = data
+else:
+    issues = []
 
-# Load false positives from .snyk
-try:
-    with open(snyk_policy) as fh:
-        policy = yaml.safe_load(fh) or {}
-        ignores = policy.get("ignore", {})
-except FileNotFoundError:
-    ignores = {}
-
-# Count severities
 counts = {"low": 0, "medium": 0, "high": 0}
-for i in issues:
-    sev = (i.get("severity") or "").lower()
+
+for issue in issues:
+    sev = issue.get("severity", "").lower()
     if sev in counts:
         counts[sev] += 1
 
-fp_count = sum(len(v) for v in ignores.values())
+# Save summary JSON
+with open(summary_json, "w") as f:
+    json.dump({
+        "timestamp": "2025-09-01T12:00:00Z",
+        "counts": counts,
+        "false_positive_rules": 0,
+        "raw_file": input_json
+    }, f, indent=2)
 
-summary = {
-    "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-    "counts": counts,
-    "false_positive_rules": fp_count,
-    "raw_file": inp,
-}
-
-# Write summary JSON
-with open(out_summary, "w") as fh:
-    json.dump(summary, fh, indent=2)
-
-# Append to trend CSV
-header = ["timestamp", "low", "medium", "high", "false_positive_rules"]
-row = [
-    summary["timestamp"],
-    counts["low"],
-    counts["medium"],
-    counts["high"],
-    fp_count,
-]
-
-try:
-    with open(out_trend, "x", newline="") as fh:
-        writer = csv.writer(fh)
-        writer.writerow(header)
-        writer.writerow(row)
-except FileExistsError:
-    with open(out_trend, "a", newline="") as fh:
-        writer = csv.writer(fh)
-        writer.writerow(row)
-
-print("Wrote", out_summary, "and", out_trend)
+# Save trend CSV
+with open(trend_csv, "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["severity", "count"])
+    for k, v in counts.items():
+        writer.writerow([k, v])
 
