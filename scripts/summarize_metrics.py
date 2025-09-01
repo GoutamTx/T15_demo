@@ -2,13 +2,14 @@ import json
 import sys
 import csv
 
-if len(sys.argv) != 4:
-    print("Usage: python summarize_metrics.py <input.json> <summary.json> <trend.csv>")
+if len(sys.argv) != 5:
+    print("Usage: python summarize_metrics.py <input.json> <summary.json> <trend.csv> <.snyk>")
     sys.exit(1)
 
 input_json = sys.argv[1]
 summary_json = sys.argv[2]
 trend_csv = sys.argv[3]
+snyk_file = sys.argv[4]
 
 with open(input_json) as f:
     data = json.load(f)
