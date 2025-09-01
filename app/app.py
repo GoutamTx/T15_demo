@@ -10,6 +10,10 @@ def hello():
 name = request.args.get("name", "world")
 return f"Hello, {name}!"
 
+@app.get("/demo")
+def demo():
+    return "This is a demo endpoint"
+
 
 @app.post("/calc")
 def calc():
