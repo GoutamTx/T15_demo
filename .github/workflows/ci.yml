@@ -2,7 +2,7 @@ name: T15 – AI PR Security Review
 
 on:
   pull_request:
-    branches: [ "**" ]
+    branches: ["**"]
   workflow_dispatch:
 
 permissions:
@@ -25,19 +25,15 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Snyk CLI
-        uses: snyk/actions/python@master
-
-      - name: Auth Snyk
-        run: snyk auth ${{ secrets.SNYK_TOKEN }}
-
       - name: Run Snyk Code scan (JSON + SARIF)
+        uses: snyk/actions/python@master
+        with:
+          command: test
+          json: true
+          sarif: true
+          auth: ${{ secrets.SNYK_TOKEN }}
         env:
-          SNYK_ORG: ${{ vars.SNYK_ORG }}
-        run: |
-          mkdir -p reports
-          snyk code test --json > reports/snyk-code.json || true
-          snyk code test --sarif > reports/snyk-code.sarif || true
+          SNYK_ORG: ${{ secrets.SNYK_ORG }}
 
       - name: Enforce severity gate (fail on High)
         run: |
