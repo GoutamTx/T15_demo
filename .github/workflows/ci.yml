@@ -21,19 +21,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 2. Setup Python
-      - name: Setup Python for helper scripts
-        uses: actions/setup-python@v5
+      # 2. Setup Node.js (needed for Snyk CLI)
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          python-version: '3.11'
+          node-version: '20'
 
       # 3. Install Snyk CLI
       - name: Install Snyk CLI
-        run: pip install snyk
+        run: npm install -g snyk
 
       # 4. Authenticate Snyk
       - name: Authenticate Snyk
         run: snyk auth ${{ secrets.SNYK_TOKEN }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       # 5. Run Snyk scan (JSON + SARIF)
       - name: Run Snyk Code scan
