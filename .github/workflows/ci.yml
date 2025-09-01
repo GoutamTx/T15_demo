@@ -28,7 +28,7 @@ jobs:
       - name: Run Snyk Code scan (JSON + SARIF)
         uses: snyk/actions/python@0.4.0
         with:
-          command: test .
+          command: test app
           json: true
           sarif: true
         env:
