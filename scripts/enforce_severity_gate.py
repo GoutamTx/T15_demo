@@ -1,40 +1,38 @@
-#!/usr/bin/env python3
-import json, sys, argparse
+import json
+import argparse
+import sys
 
-SEV_ORDER = {"low": 0, "medium": 1, "high": 2}
+parser = argparse.ArgumentParser()
+parser.add_argument("json_path")
+parser.add_argument("--fail-on", choices=["low", "medium", "high"], default="high")
+args = parser.parse_args()
 
-def count_by_sev(findings):
-    counts = {"low": 0, "medium": 0, "high": 0}
-    for f in findings:
-        sev = (f.get("severity") or "").lower()
-        if sev in counts:
-            counts[sev] += 1
-    return counts
+with open(args.json_path) as f:
+    data = json.load(f)
 
-if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("json_path")
-    ap.add_argument("--fail-on", default="high", choices=["low", "medium", "high"])
-    args = ap.parse_args()
+# Snyk output may be a dict (with "issues") or a list of issues
+if isinstance(data, dict):
+    findings = data.get("issues", [])
+elif isinstance(data, list):
+    findings = data
+else:
+    findings = []
 
-    with open(args.json_path) as fh:
-        data = json.load(fh)
+# Count severities
+counts = {"low": 0, "medium": 0, "high": 0}
+for f in findings:
+    sev = f.get("severity", "").lower()
+    if sev in counts:
+        counts[sev] += 1
 
-    findings = data.get("issues", []) or data.get("runs", []) or []
-    # Snyk Code JSON uses `issues`; tolerate other shapes defensively
+# Fail if any finding meets or exceeds the severity threshold
+threshold = args.fail_on
+levels = ["low", "medium", "high"]
+threshold_index = levels.index(threshold)
 
-    counts = count_by_sev(findings)
-    print("Findings:", counts)
-
-    # Fail if any findings at threshold or higher
-    threshold = args.fail_on.lower()
-    should_fail = any(
-        counts[sev] > 0 for sev in counts if SEV_ORDER[sev] >= SEV_ORDER[threshold]
-    )
-
-    if should_fail:
-        print(f"Severity gate failed: >= {threshold} issues present.")
-        sys.exit(1)
-    else:
-        print("Severity gate passed.")
+if any(counts[sev] > 0 for i, sev in enumerate(levels) if i >= threshold_index):
+    print(f"Security gate failed: {counts}")
+    sys.exit(1)
+else:
+    print(f"No findings above {threshold} severity: {counts}")
 
