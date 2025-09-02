@@ -1,38 +1,46 @@
-import json
-import argparse
+#!/usr/bin/env python3
 import sys
+import json
+import os
 
-parser = argparse.ArgumentParser()
-parser.add_argument("json_path")
-parser.add_argument("--fail-on", choices=["low", "medium", "high"], default="high")
-args = parser.parse_args()
+SEVERITY_ORDER = ["low", "medium", "high", "critical"]
 
-with open(args.json_path) as f:
-    data = json.load(f)
+def safe_path(path_arg: str, base_dir: str = "reports") -> str:
+    """Ensure the file path stays inside base_dir."""
+    full_path = os.path.abspath(path_arg)
+    if not full_path.startswith(os.path.abspath(base_dir)):
+        raise ValueError(f"Unsafe path detected: {path_arg}")
+    return full_path
 
-# Snyk output may be a dict (with "issues") or a list of issues
-if isinstance(data, dict):
-    findings = data.get("issues", [])
-elif isinstance(data, list):
-    findings = data
-else:
-    findings = []
+def main():
+    if len(sys.argv) < 3:
+        print("Usage: python enforce_severity_gate.py <report.json> <threshold>")
+        sys.exit(1)
 
-# Count severities
-counts = {"low": 0, "medium": 0, "high": 0}
-for f in findings:
-    sev = f.get("severity", "").lower()
-    if sev in counts:
-        counts[sev] += 1
+    report_file = safe_path(sys.argv[1])
+    threshold = sys.argv[2].lower()
 
-# Fail if any finding meets or exceeds the severity threshold
-threshold = args.fail_on
-levels = ["low", "medium", "high"]
-threshold_index = levels.index(threshold)
+    if threshold not in SEVERITY_ORDER:
+        print(f"Invalid threshold: {threshold}. Choose from {SEVERITY_ORDER}")
+        sys.exit(1)
 
-if any(counts[sev] > 0 for i, sev in enumerate(levels) if i >= threshold_index):
-    print(f"Security gate failed: {counts}")
-    sys.exit(1)
-else:
-    print(f"No findings above {threshold} severity: {counts}")
+    with open(report_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
 
+    # Extract issues
+    issues = data.get("issues", [])
+    threshold_index = SEVERITY_ORDER.index(threshold)
+
+    violations = [
+        issue for issue in issues
+        if SEVERITY_ORDER.index(issue.get("severity", "low")) >= threshold_index
+    ]
+
+    if violations:
+        print(f"❌ Severity gate failed. Found {len(violations)} issues >= {threshold}")
+        sys.exit(1)
+    else:
+        print(f"✅ No issues found above threshold '{threshold}'")
+
+if __name__ == "__main__":
+    main()
