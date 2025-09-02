@@ -1,47 +1,57 @@
-import json
+#!/usr/bin/env python3
 import sys
+import json
 import csv
+import os
+from datetime import datetime
 
-if len(sys.argv) != 5:
-    print("Usage: python summarize_metrics.py <input.json> <summary.json> <trend.csv> <.snyk>")
-    sys.exit(1)
+def safe_path(path_arg: str, base_dir: str = "reports") -> str:
+    """Ensure the file path stays inside base_dir."""
+    full_path = os.path.abspath(path_arg)
+    if not full_path.startswith(os.path.abspath(base_dir)):
+        raise ValueError(f"Unsafe path detected: {path_arg}")
+    return full_path
 
-input_json = sys.argv[1]
-summary_json = sys.argv[2]
-trend_csv = sys.argv[3]
-snyk_file = sys.argv[4]
+def count_severity(issues):
+    counts = {"low": 0, "medium": 0, "high": 0, "critical": 0}
+    for issue in issues:
+        sev = issue.get("severity", "low").lower()
+        if sev in counts:
+            counts[sev] += 1
+    return counts
 
-with open(input_json) as f:
-    data = json.load(f)
+def main():
+    if len(sys.argv) < 4:
+        print("Usage: python summarize_metrics.py <input.json> <summary.json> <trend.csv>")
+        sys.exit(1)
 
-# Handle both dict (with "issues") and list
-if isinstance(data, dict):
+    input_file = safe_path(sys.argv[1])
+    summary_file = safe_path(sys.argv[2])
+    trend_file = safe_path(sys.argv[3])
+
+    with open(input_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
     issues = data.get("issues", [])
-elif isinstance(data, list):
-    issues = data
-else:
-    issues = []
+    counts = count_severity(issues)
 
-counts = {"low": 0, "medium": 0, "high": 0}
+    summary = {
+        "total_issues": sum(counts.values()),
+        "by_severity": counts,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
 
-for issue in issues:
-    sev = issue.get("severity", "").lower()
-    if sev in counts:
-        counts[sev] += 1
+    # Write summary JSON
+    with open(summary_file, "w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2)
 
-# Save summary JSON
-with open(summary_json, "w") as f:
-    json.dump({
-        "timestamp": "2025-09-01T12:00:00Z",
-        "counts": counts,
-        "false_positive_rules": 0,
-        "raw_file": input_json
-    }, f, indent=2)
+    # Append trend CSV with safe quoting
+    timestamp = summary["timestamp"]
+    with open(trend_file, "a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+        writer.writerow([timestamp, counts["low"], counts["medium"], counts["high"], counts["critical"]])
 
-# Save trend CSV
-with open(trend_csv, "w", newline="") as f:
-    writer = csv.writer(f)
-    writer.writerow(["severity", "count"])
-    for k, v in counts.items():
-        writer.writerow([k, v])
+    print("✅ Metrics summarized successfully.")
 
+if __name__ == "__main__":
+    main()
